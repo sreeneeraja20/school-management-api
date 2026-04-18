@@ -1,7 +1,7 @@
 package com.schoolmanagement.config;
 
 import com.schoolmanagement.security.JwtAuthenticationFilter;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -20,14 +20,22 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
-@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final String allowedOrigins;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          @Value("${app.cors.allowed-origins}") String allowedOrigins) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.allowedOrigins = allowedOrigins;
+    }
 
     @Bean
     PasswordEncoder passwordEncoder() {
@@ -42,11 +50,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(
-            "http://localhost:4200",   // Angular
-            "http://localhost:3000",   // Flutter web/React
-            "http://localhost:8080"    // Local testing
-        ));
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isBlank())
+                .collect(Collectors.toList());
+        configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
@@ -69,6 +77,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/forgot-password").permitAll()
                 .requestMatchers("/api/parent-auth/login").permitAll()
                 .requestMatchers("/api/tenants/by-slug/**").permitAll()
+                .requestMatchers("/api/health/**").permitAll()
                 .requestMatchers("/swagger-ui/**").permitAll()
                 .requestMatchers("/v3/api-docs/**").permitAll()
                 .requestMatchers("/swagger-ui.html").permitAll()
@@ -84,6 +93,7 @@ public class SecurityConfig {
 
                 // Admin + Teacher
                 .requestMatchers(HttpMethod.GET, "/api/students/**").hasAnyRole("ADMIN", "TEACHER")
+                .requestMatchers(HttpMethod.POST, "/api/students/search").hasAnyRole("ADMIN", "TEACHER")
                 .requestMatchers(HttpMethod.POST, "/api/students/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/students/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/students/**").hasRole("ADMIN")

@@ -1,6 +1,7 @@
 package com.schoolmanagement.controller;
 
 import com.schoolmanagement.dto.request.ExamRequest;
+import com.schoolmanagement.dto.request.TablePageRequest;
 import com.schoolmanagement.dto.response.ApiResponse;
 import com.schoolmanagement.dto.response.ExamResponse;
 import com.schoolmanagement.dto.response.PageResponse;
@@ -42,15 +43,13 @@ public class ExamController {
         return ResponseEntity.ok(ApiResponse.success("Exam retrieved successfully", response));
     }
 
-    @GetMapping
-    @Operation(summary = "Get all exams", description = "Get paginated list of exams")
-    public ResponseEntity<ApiResponse<PageResponse<ExamResponse>>> getAllExams(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "startDate") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir) {
-        log.info("Fetching all exams - page: {}, size: {}", page, size);
-        PageResponse<ExamResponse> response = examService.getAll(page, size, sortBy, sortDir);
+    @PostMapping("/search")
+    @Operation(summary = "Search exams", description = "Search/filter/sort exams with pagination")
+    public ResponseEntity<ApiResponse<PageResponse<ExamResponse>>> searchExams(
+            @RequestBody(required = false) TablePageRequest request) {
+        TablePageRequest pageRequest = request == null ? new TablePageRequest() : request;
+        log.info("Searching exams - page: {}, size: {}", pageRequest.getPage(), pageRequest.getSize());
+        PageResponse<ExamResponse> response = examService.getAll(pageRequest);
         return ResponseEntity.ok(ApiResponse.success("Exams retrieved successfully", response));
     }
 

@@ -1,6 +1,7 @@
 package com.schoolmanagement.service;
 
 import com.schoolmanagement.dto.request.EventRequest;
+import com.schoolmanagement.dto.request.TablePageRequest;
 import com.schoolmanagement.dto.response.EventResponse;
 import com.schoolmanagement.dto.response.PageResponse;
 import com.schoolmanagement.entity.Event;
@@ -9,29 +10,29 @@ import com.schoolmanagement.exception.ResourceNotFoundException;
 import com.schoolmanagement.repository.EventRepository;
 import com.schoolmanagement.repository.EventTypeRepository;
 import com.schoolmanagement.security.TenantContext;
+import com.schoolmanagement.util.TableQueryUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.UUID;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 public class EventService {
 
     private final EventRepository eventRepository;
     private final EventTypeRepository eventTypeRepository;
 
+    @Transactional
     public EventResponse create(EventRequest request) {
         String tenantId = TenantContext.getTenantId();
         log.info("Creating event: {} for tenant: {}", request.getTitle(), tenantId);
@@ -40,7 +41,6 @@ public class EventService {
             .orElseThrow(() -> new ResourceNotFoundException("Event type not found: " + request.getType()));
 
         Event event = Event.builder()
-            .id(UUID.randomUUID().toString())
             .tenantId(tenantId)
             .title(request.getTitle())
             .description(request.getDescription())
@@ -60,24 +60,25 @@ public class EventService {
         String tenantId = TenantContext.getTenantId();
         log.info("Fetching event: {} for tenant: {}", id, tenantId);
 
-        Event event = eventRepository.findById(id)
+        Event event = eventRepository.findByIdAndTenantId(id, tenantId)
             .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
-
-        if (!event.getTenantId().equals(tenantId)) {
-            throw new ResourceNotFoundException("Event not found");
-        }
 
         return mapToResponse(event);
     }
 
-    public PageResponse<EventResponse> getAll(int page, int size, String sortBy, String sortDir) {
+    public PageResponse<EventResponse> getAll(TablePageRequest request) {
         String tenantId = TenantContext.getTenantId();
         log.info("Fetching all events for tenant: {}", tenantId);
 
-        Sort.Direction direction = Sort.Direction.fromString(sortDir.toUpperCase());
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        Pageable pageable = TableQueryUtils.buildPageable(request, "startDate");
+        Specification<Event> specification = TableQueryUtils.buildSpecification(
+                tenantId,
+                request,
+                List.of("title", "description", "eventType.name"),
+                List.of("title", "description", "isActive", "eventType.name")
+        );
 
-        Page<Event> eventPage = eventRepository.findByTenantId(tenantId, pageable);
+        Page<Event> eventPage = eventRepository.findAll(specification, pageable);
 
         return PageResponse.<EventResponse>builder()
             .content(eventPage.getContent().stream()
@@ -92,16 +93,13 @@ public class EventService {
             .build();
     }
 
+    @Transactional
     public EventResponse update(String id, EventRequest request) {
         String tenantId = TenantContext.getTenantId();
         log.info("Updating event: {} for tenant: {}", id, tenantId);
 
-        Event event = eventRepository.findById(id)
+        Event event = eventRepository.findByIdAndTenantId(id, tenantId)
             .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
-
-        if (!event.getTenantId().equals(tenantId)) {
-            throw new ResourceNotFoundException("Event not found");
-        }
 
         EventType eventType = eventTypeRepository.findByTenantIdAndName(tenantId, request.getType())
             .orElseThrow(() -> new ResourceNotFoundException("Event type not found: " + request.getType()));
@@ -119,39 +117,16 @@ public class EventService {
         return mapToResponse(updated);
     }
 
+    @Transactional
     public void delete(String id) {
         String tenantId = TenantContext.getTenantId();
         log.info("Deleting event: {} for tenant: {}", id, tenantId);
 
-        Event event = eventRepository.findById(id)
+        Event event = eventRepository.findByIdAndTenantId(id, tenantId)
             .orElseThrow(() -> new ResourceNotFoundException("Event not found"));
-
-        if (!event.getTenantId().equals(tenantId)) {
-            throw new ResourceNotFoundException("Event not found");
-        }
 
         eventRepository.delete(event);
         log.info("Event deleted: {}", id);
-    }
-
-    public PageResponse<EventResponse> searchEvents(String search, int page, int size) {
-        String tenantId = TenantContext.getTenantId();
-        log.info("Searching events: {} for tenant: {}", search, tenantId);
-
-        Pageable pageable = PageRequest.of(page, size);
-        Page<Event> eventPage = eventRepository.searchEvents(tenantId, search, pageable);
-
-        return PageResponse.<EventResponse>builder()
-            .content(eventPage.getContent().stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList()))
-            .page(eventPage.getNumber())
-            .size(eventPage.getSize())
-            .totalElements(eventPage.getTotalElements())
-            .totalPages(eventPage.getTotalPages())
-            .last(eventPage.isLast())
-            .first(eventPage.isFirst())
-            .build();
     }
 
     private EventResponse mapToResponse(Event event) {

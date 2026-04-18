@@ -1,6 +1,7 @@
 package com.schoolmanagement.controller;
 
 import com.schoolmanagement.dto.request.StudentRequest;
+import com.schoolmanagement.dto.request.TablePageRequest;
 import com.schoolmanagement.dto.response.ApiResponse;
 import com.schoolmanagement.dto.response.PageResponse;
 import com.schoolmanagement.dto.response.StudentResponse;
@@ -42,16 +43,14 @@ public class StudentController {
         return ResponseEntity.ok(ApiResponse.success("Student retrieved successfully", response));
     }
 
-    @GetMapping
+    @PostMapping("/search")
     @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
-    @Operation(summary = "Get all students", description = "Get paginated list of students")
-    public ResponseEntity<ApiResponse<PageResponse<StudentResponse>>> getAllStudents(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "name") String sortBy,
-            @RequestParam(defaultValue = "asc") String sortDir) {
-        log.info("Fetching all students - page: {}, size: {}", page, size);
-        PageResponse<StudentResponse> response = studentService.getAll(page, size, sortBy, sortDir);
+    @Operation(summary = "Search students", description = "Search/filter/sort students with pagination")
+    public ResponseEntity<ApiResponse<PageResponse<StudentResponse>>> searchStudents(
+            @RequestBody(required = false) TablePageRequest request) {
+        TablePageRequest pageRequest = request == null ? new TablePageRequest() : request;
+        log.info("Searching students - page: {}, size: {}", pageRequest.getPage(), pageRequest.getSize());
+        PageResponse<StudentResponse> response = studentService.getAll(pageRequest);
         return ResponseEntity.ok(ApiResponse.success("Students retrieved successfully", response));
     }
 

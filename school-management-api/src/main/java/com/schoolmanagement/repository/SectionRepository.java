@@ -4,6 +4,7 @@ import com.schoolmanagement.entity.Section;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -12,13 +13,17 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface SectionRepository extends JpaRepository<Section, String> {
+public interface SectionRepository extends JpaRepository<Section, String>, JpaSpecificationExecutor<Section> {
     
     Page<Section> findByTenantId(String tenantId, Pageable pageable);
     
     List<Section> findByTenantIdAndClassId(String tenantId, String classId);
     
     Optional<Section> findByTenantIdAndClassIdAndName(String tenantId, String classId, String name);
+
+    Optional<Section> findByIdAndTenantId(String id, String tenantId);
+
+    List<Section> findByTenantIdAndIdIn(String tenantId, List<String> ids);
     
     boolean existsByTenantIdAndClassIdAndName(String tenantId, String classId, String name);
     

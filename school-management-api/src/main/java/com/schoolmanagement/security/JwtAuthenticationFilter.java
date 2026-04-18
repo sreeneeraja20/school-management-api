@@ -5,8 +5,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,10 +18,10 @@ import java.util.Collections;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    @Autowired
-    private JwtTokenProvider tokenProvider;
+    private final JwtTokenProvider tokenProvider;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -30,8 +30,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String token = extractTokenFromRequest(request);
 
-            if (token != null && tokenProvider.validateToken(token)) {
-                Claims claims = tokenProvider.getClaims(token);
+            var claimsOptional = token == null ? java.util.Optional.<Claims>empty() : tokenProvider.validateAndGetClaims(token);
+            if (claimsOptional.isPresent()) {
+                Claims claims = claimsOptional.get();
 
                 String userId = claims.getSubject();
                 String tenantId = (String) claims.get("tenantId");
@@ -59,7 +60,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         } finally {
             TenantContext.clear();
-            SecurityContextHolder.clearContext();
         }
     }
 

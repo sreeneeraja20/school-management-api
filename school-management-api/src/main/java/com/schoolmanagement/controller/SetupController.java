@@ -2,7 +2,10 @@ package com.schoolmanagement.controller;
 
 import com.schoolmanagement.dto.request.*;
 import com.schoolmanagement.dto.response.*;
-import com.schoolmanagement.service.SetupService;
+import com.schoolmanagement.service.AcademicYearService;
+import com.schoolmanagement.service.ClassService;
+import com.schoolmanagement.service.SectionService;
+import com.schoolmanagement.service.SubjectService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -21,7 +24,10 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasRole('ADMIN')")
 public class SetupController {
 
-    private final SetupService setupService;
+    private final AcademicYearService academicYearService;
+    private final ClassService classService;
+    private final SectionService sectionService;
+    private final SubjectService subjectService;
 
     // ===================== ACADEMIC YEAR =====================
 
@@ -29,7 +35,7 @@ public class SetupController {
     @Operation(summary = "Create academic year", description = "Create a new academic year")
     public ResponseEntity<ApiResponse<AcademicYearResponse>> createAcademicYear(@Valid @RequestBody AcademicYearRequest request) {
         log.info("Creating academic year: {}", request.getName());
-        AcademicYearResponse response = setupService.createAcademicYear(request);
+        AcademicYearResponse response = academicYearService.createAcademicYear(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Academic year created successfully", response));
     }
 
@@ -37,17 +43,17 @@ public class SetupController {
     @Operation(summary = "Get academic year by ID", description = "Get details of a specific academic year")
     public ResponseEntity<ApiResponse<AcademicYearResponse>> getAcademicYear(@PathVariable String id) {
         log.info("Fetching academic year: {}", id);
-        AcademicYearResponse response = setupService.getAcademicYearById(id);
+        AcademicYearResponse response = academicYearService.getAcademicYearById(id);
         return ResponseEntity.ok(ApiResponse.success("Academic year retrieved successfully", response));
     }
 
-    @GetMapping("/academic-years")
-    @Operation(summary = "Get all academic years", description = "Get paginated list of academic years")
-    public ResponseEntity<ApiResponse<PageResponse<AcademicYearResponse>>> getAllAcademicYears(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        log.info("Fetching all academic years - page: {}, size: {}", page, size);
-        PageResponse<AcademicYearResponse> response = setupService.getAllAcademicYears(page, size);
+    @PostMapping("/academic-years/search")
+    @Operation(summary = "Search academic years", description = "Search/filter/sort academic years with pagination")
+    public ResponseEntity<ApiResponse<PageResponse<AcademicYearResponse>>> searchAcademicYears(
+            @RequestBody(required = false) TablePageRequest request) {
+        TablePageRequest pageRequest = request == null ? new TablePageRequest() : request;
+        log.info("Searching academic years - page: {}, size: {}", pageRequest.getPage(), pageRequest.getSize());
+        PageResponse<AcademicYearResponse> response = academicYearService.searchAcademicYears(pageRequest);
         return ResponseEntity.ok(ApiResponse.success("Academic years retrieved successfully", response));
     }
 
@@ -57,7 +63,7 @@ public class SetupController {
             @PathVariable String id,
             @Valid @RequestBody AcademicYearRequest request) {
         log.info("Updating academic year: {}", id);
-        AcademicYearResponse response = setupService.updateAcademicYear(id, request);
+        AcademicYearResponse response = academicYearService.updateAcademicYear(id, request);
         return ResponseEntity.ok(ApiResponse.success("Academic year updated successfully", response));
     }
 
@@ -65,7 +71,7 @@ public class SetupController {
     @Operation(summary = "Delete academic year", description = "Delete an academic year")
     public ResponseEntity<ApiResponse<String>> deleteAcademicYear(@PathVariable String id) {
         log.info("Deleting academic year: {}", id);
-        setupService.deleteAcademicYear(id);
+        academicYearService.deleteAcademicYear(id);
         return ResponseEntity.ok(ApiResponse.success("Academic year deleted successfully", null));
     }
 
@@ -75,7 +81,7 @@ public class SetupController {
     @Operation(summary = "Create class", description = "Create a new class")
     public ResponseEntity<ApiResponse<ClassResponse>> createClass(@Valid @RequestBody ClassRequest request) {
         log.info("Creating class: {}", request.getName());
-        ClassResponse response = setupService.createClass(request);
+        ClassResponse response = classService.createClass(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Class created successfully", response));
     }
 
@@ -83,17 +89,17 @@ public class SetupController {
     @Operation(summary = "Get class by ID", description = "Get details of a specific class")
     public ResponseEntity<ApiResponse<ClassResponse>> getClass(@PathVariable String id) {
         log.info("Fetching class: {}", id);
-        ClassResponse response = setupService.getClassById(id);
+        ClassResponse response = classService.getClassById(id);
         return ResponseEntity.ok(ApiResponse.success("Class retrieved successfully", response));
     }
 
-    @GetMapping("/classes")
-    @Operation(summary = "Get all classes", description = "Get paginated list of classes")
-    public ResponseEntity<ApiResponse<PageResponse<ClassResponse>>> getAllClasses(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        log.info("Fetching all classes - page: {}, size: {}", page, size);
-        PageResponse<ClassResponse> response = setupService.getAllClasses(page, size);
+    @PostMapping("/classes/search")
+    @Operation(summary = "Search classes", description = "Search/filter/sort classes with pagination")
+    public ResponseEntity<ApiResponse<PageResponse<ClassResponse>>> searchClasses(
+            @RequestBody(required = false) TablePageRequest request) {
+        TablePageRequest pageRequest = request == null ? new TablePageRequest() : request;
+        log.info("Searching classes - page: {}, size: {}", pageRequest.getPage(), pageRequest.getSize());
+        PageResponse<ClassResponse> response = classService.searchClasses(pageRequest);
         return ResponseEntity.ok(ApiResponse.success("Classes retrieved successfully", response));
     }
 
@@ -103,7 +109,7 @@ public class SetupController {
             @PathVariable String id,
             @Valid @RequestBody ClassRequest request) {
         log.info("Updating class: {}", id);
-        ClassResponse response = setupService.updateClass(id, request);
+        ClassResponse response = classService.updateClass(id, request);
         return ResponseEntity.ok(ApiResponse.success("Class updated successfully", response));
     }
 
@@ -111,7 +117,7 @@ public class SetupController {
     @Operation(summary = "Delete class", description = "Delete a class")
     public ResponseEntity<ApiResponse<String>> deleteClass(@PathVariable String id) {
         log.info("Deleting class: {}", id);
-        setupService.deleteClass(id);
+        classService.deleteClass(id);
         return ResponseEntity.ok(ApiResponse.success("Class deleted successfully", null));
     }
 
@@ -121,7 +127,7 @@ public class SetupController {
     @Operation(summary = "Create section", description = "Create a new section")
     public ResponseEntity<ApiResponse<SectionResponse>> createSection(@Valid @RequestBody SectionRequest request) {
         log.info("Creating section: {}", request.getName());
-        SectionResponse response = setupService.createSection(request);
+        SectionResponse response = sectionService.createSection(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Section created successfully", response));
     }
 
@@ -129,17 +135,17 @@ public class SetupController {
     @Operation(summary = "Get section by ID", description = "Get details of a specific section")
     public ResponseEntity<ApiResponse<SectionResponse>> getSection(@PathVariable String id) {
         log.info("Fetching section: {}", id);
-        SectionResponse response = setupService.getSectionById(id);
+        SectionResponse response = sectionService.getSectionById(id);
         return ResponseEntity.ok(ApiResponse.success("Section retrieved successfully", response));
     }
 
-    @GetMapping("/sections")
-    @Operation(summary = "Get all sections", description = "Get paginated list of sections")
-    public ResponseEntity<ApiResponse<PageResponse<SectionResponse>>> getAllSections(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        log.info("Fetching all sections - page: {}, size: {}", page, size);
-        PageResponse<SectionResponse> response = setupService.getAllSections(page, size);
+    @PostMapping("/sections/search")
+    @Operation(summary = "Search sections", description = "Search/filter/sort sections with pagination")
+    public ResponseEntity<ApiResponse<PageResponse<SectionResponse>>> searchSections(
+            @RequestBody(required = false) TablePageRequest request) {
+        TablePageRequest pageRequest = request == null ? new TablePageRequest() : request;
+        log.info("Searching sections - page: {}, size: {}", pageRequest.getPage(), pageRequest.getSize());
+        PageResponse<SectionResponse> response = sectionService.searchSections(pageRequest);
         return ResponseEntity.ok(ApiResponse.success("Sections retrieved successfully", response));
     }
 
@@ -149,7 +155,7 @@ public class SetupController {
             @PathVariable String id,
             @Valid @RequestBody SectionRequest request) {
         log.info("Updating section: {}", id);
-        SectionResponse response = setupService.updateSection(id, request);
+        SectionResponse response = sectionService.updateSection(id, request);
         return ResponseEntity.ok(ApiResponse.success("Section updated successfully", response));
     }
 
@@ -157,7 +163,7 @@ public class SetupController {
     @Operation(summary = "Delete section", description = "Delete a section")
     public ResponseEntity<ApiResponse<String>> deleteSection(@PathVariable String id) {
         log.info("Deleting section: {}", id);
-        setupService.deleteSection(id);
+        sectionService.deleteSection(id);
         return ResponseEntity.ok(ApiResponse.success("Section deleted successfully", null));
     }
 
@@ -167,7 +173,7 @@ public class SetupController {
     @Operation(summary = "Create subject", description = "Create a new subject")
     public ResponseEntity<ApiResponse<SubjectResponse>> createSubject(@Valid @RequestBody SubjectRequest request) {
         log.info("Creating subject: {}", request.getName());
-        SubjectResponse response = setupService.createSubject(request);
+        SubjectResponse response = subjectService.createSubject(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Subject created successfully", response));
     }
 
@@ -175,17 +181,17 @@ public class SetupController {
     @Operation(summary = "Get subject by ID", description = "Get details of a specific subject")
     public ResponseEntity<ApiResponse<SubjectResponse>> getSubject(@PathVariable String id) {
         log.info("Fetching subject: {}", id);
-        SubjectResponse response = setupService.getSubjectById(id);
+        SubjectResponse response = subjectService.getSubjectById(id);
         return ResponseEntity.ok(ApiResponse.success("Subject retrieved successfully", response));
     }
 
-    @GetMapping("/subjects")
-    @Operation(summary = "Get all subjects", description = "Get paginated list of subjects")
-    public ResponseEntity<ApiResponse<PageResponse<SubjectResponse>>> getAllSubjects(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        log.info("Fetching all subjects - page: {}, size: {}", page, size);
-        PageResponse<SubjectResponse> response = setupService.getAllSubjects(page, size);
+    @PostMapping("/subjects/search")
+    @Operation(summary = "Search subjects", description = "Search/filter/sort subjects with pagination")
+    public ResponseEntity<ApiResponse<PageResponse<SubjectResponse>>> searchSubjects(
+            @RequestBody(required = false) TablePageRequest request) {
+        TablePageRequest pageRequest = request == null ? new TablePageRequest() : request;
+        log.info("Searching subjects - page: {}, size: {}", pageRequest.getPage(), pageRequest.getSize());
+        PageResponse<SubjectResponse> response = subjectService.searchSubjects(pageRequest);
         return ResponseEntity.ok(ApiResponse.success("Subjects retrieved successfully", response));
     }
 
@@ -195,7 +201,7 @@ public class SetupController {
             @PathVariable String id,
             @Valid @RequestBody SubjectRequest request) {
         log.info("Updating subject: {}", id);
-        SubjectResponse response = setupService.updateSubject(id, request);
+        SubjectResponse response = subjectService.updateSubject(id, request);
         return ResponseEntity.ok(ApiResponse.success("Subject updated successfully", response));
     }
 
@@ -203,7 +209,7 @@ public class SetupController {
     @Operation(summary = "Delete subject", description = "Delete a subject")
     public ResponseEntity<ApiResponse<String>> deleteSubject(@PathVariable String id) {
         log.info("Deleting subject: {}", id);
-        setupService.deleteSubject(id);
+        subjectService.deleteSubject(id);
         return ResponseEntity.ok(ApiResponse.success("Subject deleted successfully", null));
     }
 }

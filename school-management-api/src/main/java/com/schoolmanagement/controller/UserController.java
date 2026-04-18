@@ -1,6 +1,7 @@
 package com.schoolmanagement.controller;
 
 import com.schoolmanagement.dto.request.UserRequest;
+import com.schoolmanagement.dto.request.TablePageRequest;
 import com.schoolmanagement.dto.response.ApiResponse;
 import com.schoolmanagement.dto.response.PageResponse;
 import com.schoolmanagement.dto.response.UserResponse;
@@ -41,15 +42,13 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success("User retrieved successfully", response));
     }
 
-    @GetMapping
-    @Operation(summary = "Get all users", description = "Get paginated list of users")
-    public ResponseEntity<ApiResponse<PageResponse<UserResponse>>> getAllUsers(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "name") String sortBy,
-            @RequestParam(defaultValue = "asc") String sortDir) {
-        log.info("Fetching all users - page: {}, size: {}", page, size);
-        PageResponse<UserResponse> response = userService.getAll(page, size, sortBy, sortDir);
+    @PostMapping("/search")
+    @Operation(summary = "Search users", description = "Search/filter/sort users with pagination")
+    public ResponseEntity<ApiResponse<PageResponse<UserResponse>>> searchUsers(
+            @RequestBody(required = false) TablePageRequest request) {
+        TablePageRequest pageRequest = request == null ? new TablePageRequest() : request;
+        log.info("Searching users - page: {}, size: {}", pageRequest.getPage(), pageRequest.getSize());
+        PageResponse<UserResponse> response = userService.getAll(pageRequest);
         return ResponseEntity.ok(ApiResponse.success("Users retrieved successfully", response));
     }
 

@@ -1,6 +1,7 @@
 package com.schoolmanagement.controller;
 
 import com.schoolmanagement.dto.request.StaffRequest;
+import com.schoolmanagement.dto.request.TablePageRequest;
 import com.schoolmanagement.dto.response.ApiResponse;
 import com.schoolmanagement.dto.response.PageResponse;
 import com.schoolmanagement.dto.response.StaffResponse;
@@ -42,16 +43,14 @@ public class StaffController {
         return ResponseEntity.ok(ApiResponse.success("Staff retrieved successfully", response));
     }
 
-    @GetMapping
+    @PostMapping("/search")
     @PreAuthorize("hasAnyRole('ADMIN', 'TEACHER')")
-    @Operation(summary = "Get all staff", description = "Get paginated list of staff members")
-    public ResponseEntity<ApiResponse<PageResponse<StaffResponse>>> getAllStaff(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "name") String sortBy,
-            @RequestParam(defaultValue = "asc") String sortDir) {
-        log.info("Fetching all staff - page: {}, size: {}", page, size);
-        PageResponse<StaffResponse> response = staffService.getAll(page, size, sortBy, sortDir);
+    @Operation(summary = "Search staff", description = "Search/filter/sort staff with pagination")
+    public ResponseEntity<ApiResponse<PageResponse<StaffResponse>>> searchStaff(
+            @RequestBody(required = false) TablePageRequest request) {
+        TablePageRequest pageRequest = request == null ? new TablePageRequest() : request;
+        log.info("Searching staff - page: {}, size: {}", pageRequest.getPage(), pageRequest.getSize());
+        PageResponse<StaffResponse> response = staffService.getAll(pageRequest);
         return ResponseEntity.ok(ApiResponse.success("Staff retrieved successfully", response));
     }
 

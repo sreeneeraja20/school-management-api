@@ -18,19 +18,19 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 public class AttendanceService {
 
     private final AttendanceRepository attendanceRepository;
     private final AttendanceStatusRepository attendanceStatusRepository;
     private final StudentRepository studentRepository;
 
+    @Transactional
     public void markAttendance(AttendanceRequest request) {
         String tenantId = TenantContext.getTenantId();
         log.info("Marking attendance for {} students on {}", request.getRecords().size(), request.getDate());
@@ -53,7 +53,6 @@ public class AttendanceService {
             } else {
                 // Create new record
                 Attendance attendance = Attendance.builder()
-                    .id(UUID.randomUUID().toString())
                     .tenantId(tenantId)
                     .studentId(record.getStudentId())
                     .classId(request.getClassId())

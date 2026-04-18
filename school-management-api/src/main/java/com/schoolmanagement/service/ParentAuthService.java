@@ -23,7 +23,7 @@ import java.time.LocalDateTime;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 public class ParentAuthService {
 
     private final ParentAccountRepository parentAccountRepository;
@@ -31,6 +31,7 @@ public class ParentAuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
 
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         log.info("Parent login attempt for user: {} with school code: {}", request.getEmail(), request.getSchoolCode());
 
@@ -89,6 +90,7 @@ public class ParentAuthService {
             .build();
     }
 
+    @Transactional
     public void changePassword(String parentId, ChangePasswordRequest request) {
         log.info("Change password requested for parent: {}", parentId);
 

@@ -1,6 +1,7 @@
 package com.schoolmanagement.controller;
 
 import com.schoolmanagement.dto.request.EventRequest;
+import com.schoolmanagement.dto.request.TablePageRequest;
 import com.schoolmanagement.dto.response.ApiResponse;
 import com.schoolmanagement.dto.response.EventResponse;
 import com.schoolmanagement.dto.response.PageResponse;
@@ -42,15 +43,13 @@ public class EventController {
         return ResponseEntity.ok(ApiResponse.success("Event retrieved successfully", response));
     }
 
-    @GetMapping
-    @Operation(summary = "Get all events", description = "Get paginated list of events")
-    public ResponseEntity<ApiResponse<PageResponse<EventResponse>>> getAllEvents(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "startDate") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir) {
-        log.info("Fetching all events - page: {}, size: {}", page, size);
-        PageResponse<EventResponse> response = eventService.getAll(page, size, sortBy, sortDir);
+    @PostMapping("/search")
+    @Operation(summary = "Search events", description = "Search/filter/sort events with pagination")
+    public ResponseEntity<ApiResponse<PageResponse<EventResponse>>> searchEvents(
+            @RequestBody(required = false) TablePageRequest request) {
+        TablePageRequest pageRequest = request == null ? new TablePageRequest() : request;
+        log.info("Searching events - page: {}, size: {}", pageRequest.getPage(), pageRequest.getSize());
+        PageResponse<EventResponse> response = eventService.getAll(pageRequest);
         return ResponseEntity.ok(ApiResponse.success("Events retrieved successfully", response));
     }
 
@@ -74,14 +73,4 @@ public class EventController {
         return ResponseEntity.ok(ApiResponse.success("Event deleted successfully", null));
     }
 
-    @GetMapping("/search")
-    @Operation(summary = "Search events", description = "Search events by title or description")
-    public ResponseEntity<ApiResponse<PageResponse<EventResponse>>> searchEvents(
-            @RequestParam String search,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        log.info("Searching events: {}", search);
-        PageResponse<EventResponse> response = eventService.searchEvents(search, page, size);
-        return ResponseEntity.ok(ApiResponse.success("Events retrieved successfully", response));
-    }
 }
