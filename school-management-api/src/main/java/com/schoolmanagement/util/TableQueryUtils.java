@@ -12,6 +12,7 @@ import org.springframework.util.StringUtils;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public final class TableQueryUtils {
 
@@ -41,7 +42,12 @@ public final class TableQueryUtils {
         if (StringUtils.hasText(request.getGlobalSearch())) {
             List<String> globalFields = (request.getGlobalSearchFields() == null || request.getGlobalSearchFields().isEmpty())
                     ? defaultGlobalSearchFields
-                    : request.getGlobalSearchFields();
+                    : request.getGlobalSearchFields().stream()
+                    .filter(defaultGlobalSearchFields::contains)
+                    .collect(Collectors.toList());
+            if (globalFields.isEmpty()) {
+                globalFields = defaultGlobalSearchFields;
+            }
             specification = specification.and(globalSearchSpecification(globalFields, request.getGlobalSearch()));
         }
 
@@ -67,9 +73,9 @@ public final class TableQueryUtils {
 
     private static <T> Specification<T> globalSearchSpecification(List<String> fields, String searchValue) {
         return (root, query, cb) -> {
-            String pattern = "%" + searchValue.trim().toLowerCase() + "%";
+            String pattern = "%" + escapeLikePattern(searchValue.trim().toLowerCase()) + "%";
             Predicate[] predicates = fields.stream()
-                    .map(field -> cb.like(cb.lower(resolvePath(root, field).as(String.class)), pattern))
+                    .map(field -> cb.like(cb.lower(resolvePath(root, field).as(String.class)), pattern, '\\'))
                     .toArray(Predicate[]::new);
             return cb.or(predicates);
         };
@@ -79,13 +85,16 @@ public final class TableQueryUtils {
         return (root, query, cb) -> {
             Path<?> path = resolvePath(root, field);
             if (value instanceof String stringValue) {
-                return cb.like(cb.lower(path.as(String.class)), "%" + stringValue.trim().toLowerCase() + "%");
+                return cb.like(cb.lower(path.as(String.class)), "%" + escapeLikePattern(stringValue.trim().toLowerCase()) + "%", '\\');
             }
             return cb.equal(path, value);
         };
     }
 
     private static Path<?> resolvePath(jakarta.persistence.criteria.Root<?> root, String field) {
+        if (!field.matches("^[A-Za-z0-9_\\.]+$")) {
+            throw new IllegalArgumentException("Invalid field path: " + field);
+        }
         if (!field.contains(".")) {
             return root.get(field);
         }
@@ -94,5 +103,12 @@ public final class TableQueryUtils {
             path = path.get(part);
         }
         return path;
+    }
+
+    private static String escapeLikePattern(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 }

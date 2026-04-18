@@ -65,7 +65,13 @@ public class StudentService {
         Student saved = studentRepository.save(student);
         log.info("Student created with ID: {}", saved.getId());
 
-        return mapToResponse(saved, Collections.emptyMap(), Collections.emptyMap());
+        Map<String, Class> classMap = classRepository.findByTenantIdAndIdIn(tenantId, List.of(saved.getClassId()))
+                .stream()
+                .collect(Collectors.toMap(Class::getId, Function.identity()));
+        Map<String, Section> sectionMap = sectionRepository.findByTenantIdAndIdIn(tenantId, List.of(saved.getSectionId()))
+                .stream()
+                .collect(Collectors.toMap(Section::getId, Function.identity()));
+        return mapToResponse(saved, classMap, sectionMap);
     }
 
     public StudentResponse getById(String id) {
@@ -148,7 +154,13 @@ public class StudentService {
         Student updated = studentRepository.save(student);
         log.info("Student updated: {}", id);
 
-        return mapToResponse(updated, Collections.emptyMap(), Collections.emptyMap());
+        Map<String, Class> classMap = classRepository.findByTenantIdAndIdIn(tenantId, List.of(updated.getClassId()))
+                .stream()
+                .collect(Collectors.toMap(Class::getId, Function.identity()));
+        Map<String, Section> sectionMap = sectionRepository.findByTenantIdAndIdIn(tenantId, List.of(updated.getSectionId()))
+                .stream()
+                .collect(Collectors.toMap(Section::getId, Function.identity()));
+        return mapToResponse(updated, classMap, sectionMap);
     }
 
     @Transactional
@@ -165,13 +177,7 @@ public class StudentService {
 
     private StudentResponse mapToResponse(Student student, Map<String, Class> classMap, Map<String, Section> sectionMap) {
         Class classEntity = classMap.get(student.getClassId());
-        if (classEntity == null && student.getClassId() != null) {
-            classEntity = classRepository.findByIdAndTenantId(student.getClassId(), student.getTenantId()).orElse(null);
-        }
         Section section = sectionMap.get(student.getSectionId());
-        if (section == null && student.getSectionId() != null) {
-            section = sectionRepository.findByIdAndTenantId(student.getSectionId(), student.getTenantId()).orElse(null);
-        }
 
         return StudentResponse.builder()
             .id(student.getId())
