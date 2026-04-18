@@ -24,7 +24,7 @@ import java.time.LocalDateTime;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 public class AuthService {
 
     private final TenantRepository tenantRepository;
@@ -32,8 +32,9 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
 
+    @Transactional
     public LoginResponse login(LoginRequest request) {
-        log.info("Login attempt for user: {} with school code: {}", request.getEmail(), request.getSchoolCode());
+        log.info("Login attempt for school code: {}", request.getSchoolCode());
 
         // Find tenant by slug (school code)
         Tenant tenant = tenantRepository.findBySlug(request.getSchoolCode())
@@ -89,6 +90,7 @@ public class AuthService {
             .build();
     }
 
+    @Transactional
     public void changePassword(String userId, ChangePasswordRequest request) {
         log.info("Change password requested for user: {}", userId);
 

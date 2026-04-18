@@ -1,48 +1,52 @@
 package com.schoolmanagement.service;
 
 import com.schoolmanagement.dto.request.StudentRequest;
+import com.schoolmanagement.dto.request.TablePageRequest;
 import com.schoolmanagement.dto.response.PageResponse;
 import com.schoolmanagement.dto.response.StudentResponse;
+import com.schoolmanagement.entity.Class;
+import com.schoolmanagement.entity.Section;
 import com.schoolmanagement.entity.Student;
 import com.schoolmanagement.exception.ResourceNotFoundException;
-import com.schoolmanagement.repository.StudentRepository;
 import com.schoolmanagement.repository.ClassRepository;
 import com.schoolmanagement.repository.SectionRepository;
+import com.schoolmanagement.repository.StudentRepository;
 import com.schoolmanagement.security.TenantContext;
+import com.schoolmanagement.util.TableQueryUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.UUID;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 public class StudentService {
 
     private final StudentRepository studentRepository;
     private final ClassRepository classRepository;
     private final SectionRepository sectionRepository;
 
+    @Transactional
     public StudentResponse create(StudentRequest request) {
         String tenantId = TenantContext.getTenantId();
         log.info("Creating student: {} for tenant: {}", request.getName(), tenantId);
 
         // Validate class and section exist
-        classRepository.findById(request.getClassId())
+        classRepository.findByIdAndTenantId(request.getClassId(), tenantId)
             .orElseThrow(() -> new ResourceNotFoundException("Class not found"));
-        sectionRepository.findById(request.getSectionId())
+        sectionRepository.findByIdAndTenantId(request.getSectionId(), tenantId)
             .orElseThrow(() -> new ResourceNotFoundException("Section not found"));
 
         Student student = Student.builder()
-            .id(UUID.randomUUID().toString())
             .tenantId(tenantId)
             .name(request.getName())
             .rollNumber(request.getRollNumber())
@@ -61,35 +65,62 @@ public class StudentService {
         Student saved = studentRepository.save(student);
         log.info("Student created with ID: {}", saved.getId());
 
-        return mapToResponse(saved);
+        Map<String, Class> classMap = classRepository.findByTenantIdAndIdIn(tenantId, List.of(saved.getClassId()))
+                .stream()
+                .collect(Collectors.toMap(Class::getId, Function.identity()));
+        Map<String, Section> sectionMap = sectionRepository.findByTenantIdAndIdIn(tenantId, List.of(saved.getSectionId()))
+                .stream()
+                .collect(Collectors.toMap(Section::getId, Function.identity()));
+        return mapToResponse(saved, classMap, sectionMap);
     }
 
     public StudentResponse getById(String id) {
         String tenantId = TenantContext.getTenantId();
         log.info("Fetching student: {} for tenant: {}", id, tenantId);
 
-        Student student = studentRepository.findById(id)
+        Student student = studentRepository.findByIdAndTenantId(id, tenantId)
             .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
 
-        if (!student.getTenantId().equals(tenantId)) {
-            throw new ResourceNotFoundException("Student not found");
-        }
-
-        return mapToResponse(student);
+        Map<String, Class> classMap = classRepository.findByTenantIdAndIdIn(tenantId, List.of(student.getClassId()))
+                .stream()
+                .collect(Collectors.toMap(Class::getId, Function.identity()));
+        Map<String, Section> sectionMap = sectionRepository.findByTenantIdAndIdIn(tenantId, List.of(student.getSectionId()))
+                .stream()
+                .collect(Collectors.toMap(Section::getId, Function.identity()));
+        return mapToResponse(student, classMap, sectionMap);
     }
 
-    public PageResponse<StudentResponse> getAll(int page, int size, String sortBy, String sortDir) {
+    public PageResponse<StudentResponse> getAll(TablePageRequest request) {
         String tenantId = TenantContext.getTenantId();
-        log.info("Fetching all students for tenant: {} - page: {}, size: {}", tenantId, page, size);
+        log.info("Fetching students for tenant: {} - page: {}, size: {}", tenantId, request.getPage(), request.getSize());
 
-        Sort.Direction direction = Sort.Direction.fromString(sortDir.toUpperCase());
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        Pageable pageable = TableQueryUtils.buildPageable(request, "name");
+        Specification<Student> specification = TableQueryUtils.buildSpecification(
+                tenantId,
+                request,
+                List.of("name", "rollNumber", "parentName", "parentEmail", "parentPhone"),
+                List.of("classId", "sectionId", "gender", "academicYearId", "rollNumber", "name")
+        );
 
-        Page<Student> studentPage = studentRepository.findByTenantId(tenantId, pageable);
+        Page<Student> studentPage = studentRepository.findAll(specification, pageable);
+
+        Set<String> classIds = studentPage.getContent().stream().map(Student::getClassId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<String> sectionIds = studentPage.getContent().stream().map(Student::getSectionId).filter(Objects::nonNull).collect(Collectors.toSet());
+
+        Map<String, Class> classMap = classIds.isEmpty()
+                ? Collections.emptyMap()
+                : classRepository.findByTenantIdAndIdIn(tenantId, new ArrayList<>(classIds))
+                .stream()
+                .collect(Collectors.toMap(Class::getId, Function.identity()));
+        Map<String, Section> sectionMap = sectionIds.isEmpty()
+                ? Collections.emptyMap()
+                : sectionRepository.findByTenantIdAndIdIn(tenantId, new ArrayList<>(sectionIds))
+                .stream()
+                .collect(Collectors.toMap(Section::getId, Function.identity()));
 
         return PageResponse.<StudentResponse>builder()
             .content(studentPage.getContent().stream()
-                .map(this::mapToResponse)
+                .map(student -> mapToResponse(student, classMap, sectionMap))
                 .collect(Collectors.toList()))
             .page(studentPage.getNumber())
             .size(studentPage.getSize())
@@ -100,16 +131,13 @@ public class StudentService {
             .build();
     }
 
+    @Transactional
     public StudentResponse update(String id, StudentRequest request) {
         String tenantId = TenantContext.getTenantId();
         log.info("Updating student: {} for tenant: {}", id, tenantId);
 
-        Student student = studentRepository.findById(id)
+        Student student = studentRepository.findByIdAndTenantId(id, tenantId)
             .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
-
-        if (!student.getTenantId().equals(tenantId)) {
-            throw new ResourceNotFoundException("Student not found");
-        }
 
         student.setName(request.getName());
         student.setRollNumber(request.getRollNumber());
@@ -126,27 +154,30 @@ public class StudentService {
         Student updated = studentRepository.save(student);
         log.info("Student updated: {}", id);
 
-        return mapToResponse(updated);
+        Map<String, Class> classMap = classRepository.findByTenantIdAndIdIn(tenantId, List.of(updated.getClassId()))
+                .stream()
+                .collect(Collectors.toMap(Class::getId, Function.identity()));
+        Map<String, Section> sectionMap = sectionRepository.findByTenantIdAndIdIn(tenantId, List.of(updated.getSectionId()))
+                .stream()
+                .collect(Collectors.toMap(Section::getId, Function.identity()));
+        return mapToResponse(updated, classMap, sectionMap);
     }
 
+    @Transactional
     public void delete(String id) {
         String tenantId = TenantContext.getTenantId();
         log.info("Deleting student: {} for tenant: {}", id, tenantId);
 
-        Student student = studentRepository.findById(id)
+        Student student = studentRepository.findByIdAndTenantId(id, tenantId)
             .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
-
-        if (!student.getTenantId().equals(tenantId)) {
-            throw new ResourceNotFoundException("Student not found");
-        }
 
         studentRepository.delete(student);
         log.info("Student deleted: {}", id);
     }
 
-    private StudentResponse mapToResponse(Student student) {
-        var classEntity = classRepository.findById(student.getClassId()).orElse(null);
-        var section = sectionRepository.findById(student.getSectionId()).orElse(null);
+    private StudentResponse mapToResponse(Student student, Map<String, Class> classMap, Map<String, Section> sectionMap) {
+        Class classEntity = classMap.get(student.getClassId());
+        Section section = sectionMap.get(student.getSectionId());
 
         return StudentResponse.builder()
             .id(student.getId())

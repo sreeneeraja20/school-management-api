@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.Optional;
 
 @Slf4j
 @Component
@@ -52,18 +53,23 @@ public class JwtTokenProvider {
                 .claim("type", type)
                 .issuedAt(now)
                 .expiration(expiryDate)
-                .signWith(key, SignatureAlgorithm.HS256)
+                .signWith(key, Jwts.SIG.HS256)
                 .compact();
     }
 
     public boolean validateToken(String token) {
+        return validateAndGetClaims(token).isPresent();
+    }
+
+    public Optional<Claims> validateAndGetClaims(String token) {
         try {
             SecretKey key = getSigningKey();
-            Jwts.parser()
+            Claims claims = Jwts.parser()
                     .verifyWith(key)
                     .build()
-                    .parseSignedClaims(token);
-            return true;
+                    .parseSignedClaims(token)
+                    .getPayload();
+            return Optional.of(claims);
         } catch (MalformedJwtException ex) {
             log.error("Invalid JWT token: {}", ex.getMessage());
         } catch (ExpiredJwtException ex) {
@@ -73,7 +79,7 @@ public class JwtTokenProvider {
         } catch (IllegalArgumentException ex) {
             log.error("JWT claims string is empty: {}", ex.getMessage());
         }
-        return false;
+        return Optional.empty();
     }
 
     public Claims getClaims(String token) {

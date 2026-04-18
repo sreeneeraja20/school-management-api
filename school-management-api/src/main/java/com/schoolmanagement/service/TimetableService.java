@@ -15,18 +15,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 public class TimetableService {
 
     private final TimetableSlotRepository timetableRepository;
     private final DayOfWeekRepository dayOfWeekRepository;
 
+    @Transactional
     public TimetableResponse create(TimetableRequest request) {
         String tenantId = TenantContext.getTenantId();
         log.info("Creating timetable slot for tenant: {}", tenantId);
@@ -35,7 +35,6 @@ public class TimetableService {
             .orElseThrow(() -> new ResourceNotFoundException("Day of week not found: " + request.getDayOfWeek()));
 
         TimetableSlot slot = TimetableSlot.builder()
-            .id(UUID.randomUUID().toString())
             .tenantId(tenantId)
             .academicYearId(request.getAcademicYearId())
             .classId(request.getClassId())
@@ -90,6 +89,7 @@ public class TimetableService {
             .collect(Collectors.toList());
     }
 
+    @Transactional
     public TimetableResponse update(String id, TimetableRequest request) {
         String tenantId = TenantContext.getTenantId();
         log.info("Updating timetable slot: {} for tenant: {}", id, tenantId);
@@ -118,6 +118,7 @@ public class TimetableService {
         return mapToResponse(updated);
     }
 
+    @Transactional
     public void delete(String id) {
         String tenantId = TenantContext.getTenantId();
         log.info("Deleting timetable slot: {} for tenant: {}", id, tenantId);
