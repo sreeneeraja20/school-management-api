@@ -1,0 +1,51 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: School Management API
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.SQLServerDialect
+        format_sql: true
+  
+  datasource:
+    url: jdbc:sqlserver://localhost:1433;databaseName=schoolmanagement;trustServerCertificate=true;encrypt=false
+    username: scuser
+    password: ScPass@123
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+
+jwt:
+  secret: your-super-secret-key-that-should-be-at-least-32-characters-long-for-hs256
+  expiration-ms: 86400000
+  parent-expiration-ms: 604800000
+
+logging:
+  level:
+    root: INFO
+    com.schoolmanagement: DEBUG
+    org.springframework.security: DEBUG
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+  api-docs:
+    path: /v3/api-docs
+#	
+#	jackson:
+#	  serialization:
+#	    write-dates-as-timestamps: false
+#	  time-zone: UTC

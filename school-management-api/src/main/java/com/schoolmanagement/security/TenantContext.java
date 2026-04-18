@@ -1,0 +1,25 @@
+package com.schoolmanagement.security;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+public class TenantContext {
+
+    private static final ThreadLocal<String> tenantIdHolder = new ThreadLocal<>();
+
+    public static void setTenantId(String tenantId) {
+        log.debug("Setting tenant ID: {}", tenantId);
+        tenantIdHolder.set(tenantId);
+    }
+
+    public static String getTenantId() {
+        String tenantId = tenantIdHolder.get();
+        log.debug("Getting tenant ID: {}", tenantId);
+        return tenantId;
+    }
+
+    public static void clear() {
+        log.debug("Clearing tenant ID");
+        tenantIdHolder.remove();
+    }
+}
